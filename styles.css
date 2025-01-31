@@ -1,35 +1,121 @@
-/* Style for elements */
+/* General button style */
 .button {
     -fx-background-color: #4CAF50;
     -fx-text-fill: white;
     -fx-font-size: 14px;
     -fx-padding: 10px 20px;
     -fx-border-radius: 5px;
+    -fx-transition: background-color 0.3s ease; /* Smooth hover transition */
 }
 
 .button:hover {
     -fx-background-color: #add325;
 }
 
-.text-field {
-    -fx-background-color: #FFFFFF;
-    -fx-border-color: #ccc;
-    -fx-border-radius: 5px;
-    -fx-padding: 8px;
-    -fx-font-size: 14px;
+.button:disabled {
+    -fx-background-color: #e0e0e0;
+    -fx-text-fill: #bdbdbd; /* Disabled button color */
 }
 
+/* Remove Task button style */
+.remove-task-button {
+    -fx-background-color: #f44336;
+}
+
+.remove-task-button:hover {
+    -fx-background-color: #ff5722;
+}
+
+/* Mark as Completed button style */
+.mark-complete-button {
+    -fx-background-color: #2196F3;
+}
+
+.mark-complete-button:hover {
+    -fx-background-color: #1e88e5;
+}
+
+/* Edit Task button style */
+.edit-task-button {
+    -fx-background-color: #FF9800;
+}
+
+.edit-task-button:hover {
+    -fx-background-color: #ffb74d;
+}
+
+/* Text field and combo-box style */
+.text-field, .combo-box {
+    -fx-font-size: 14px;
+    -fx-padding: 8px;
+    -fx-border-radius: 5px;
+    -fx-background-color: #f9f9f9;
+    -fx-border-color: #e0e0e0; /* Lighter border color */
+}
+
+/* Combo box style */
 .combo-box {
     -fx-font-size: 14px;
+    -fx-padding: 8px 8px 8px 0; /* Left padding 0 for left alignment */
+    -fx-alignment: center-left;  /* Align content to the left */
 }
 
+/* List view style */
 .list-view {
-    -fx-background-color: #f5f5f5;
-    -fx-border-color: #ccc;
+    -fx-background-color: #f9f9f9;
+    -fx-border-color: #e0e0e0;
     -fx-padding: 10px;
 }
 
+/* VBox container style */
 .vbox {
     -fx-spacing: 10px;
     -fx-alignment: center;
+    -fx-padding: 15px;
+}
+
+/* Styling for TabPane */
+.tab-pane {
+    -fx-background-color: #f4f4f4;
+    -fx-border-color: #dcdcdc;
+    -fx-border-width: 1px;
+}
+
+/* Styling for Tabs */
+.tab {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-background-color: #ffffff;
+    -fx-text-fill: #4CAF50;
+    -fx-padding: 10px;
+    -fx-border-width: 0 0 2px 0;
+    -fx-border-color: #4CAF50;
+}
+
+.tab:selected {
+    -fx-background-color: #4CAF50;
+    -fx-text-fill: white;
+    -fx-border-color: #4CAF50;
+}
+
+.tab:hover {
+    -fx-background-color: #f0f0f0;
+}
+
+/* Tasks Tab: Styling for task list and actions */
+.tasks-tab {
+    -fx-padding: 20px;
+}
+
+/* Add Task Tab: Styling for input fields and buttons */
+.add-task-tab {
+    -fx-padding: 20px;
+}
+
+.add-task-tab .text-field, .add-task-tab .combo-box {
+    -fx-margin-bottom: 10px;
+}
+
+.add-task-tab .button {
+    -fx-margin-top: 15px;
 }
