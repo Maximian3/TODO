@@ -1,9 +1,14 @@
 import javafx.application.Application;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.event.ActionEvent;
+import javafx.fxml.FXML;
+import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
 import javafx.scene.layout.*;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
@@ -14,6 +19,8 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.*;
+
+
 
 public class DoList extends Application {
 
@@ -31,6 +38,7 @@ public class DoList extends Application {
     private TextArea descriptionTextArea;
     private TextField tagsTextField;
     private ComboBox<String> filterComboBox;
+    private ListView<String> passwordListView;
 
     public static void main(String[] args) {
         launch(args);
@@ -38,6 +46,7 @@ public class DoList extends Application {
 
     @Override
     public void start(Stage primaryStage) throws Exception {
+        
         // Loading tasks from file
         taskList = FXCollections.observableArrayList();
         filteredTaskList = FXCollections.observableArrayList();
@@ -50,18 +59,19 @@ public class DoList extends Application {
 
         // Create a panel for tabs
         TabPane tabPane = new TabPane();
-
+        Tab passwordTab = new Tab("Passwords");
+        passwordTab.setClosable(false);
+        passwordTab.setContent(createPasswordTabContent());
         // Tab for tasks
         Tab tasksTab = new Tab("Tasks");
         tasksTab.setClosable(false);
         tasksTab.setContent(createTaskTabContent());
-
         // Tab for adding tasks
         Tab addTaskTab = new Tab("Add Task");
         addTaskTab.setClosable(false);
         addTaskTab.setContent(createAddTaskTabContent());
 
-        tabPane.getTabs().addAll(tasksTab, addTaskTab);
+        tabPane.getTabs().addAll(tasksTab, addTaskTab, passwordTab);
 
         // Setting up the scene and displaying the window
         Scene scene = new Scene(tabPane, 700, 550);
@@ -176,7 +186,6 @@ public class DoList extends Application {
         descriptionTextArea.setPromptText("Task Description");
         descriptionTextArea.setMaxWidth(300);
         descriptionTextArea.setMaxHeight(100);
-
         tagsTextField = new TextField();
         tagsTextField.setPromptText("Enter tags (comma separated)");
 
@@ -209,6 +218,254 @@ public class DoList extends Application {
         return addTaskTabContent;
     }
 
+    private VBox createPasswordTabContent() {
+        VBox passwordTabContent = new VBox(15);
+        passwordTabContent.setAlignment(Pos.CENTER);
+    
+        // Input fields for password details
+        TextField websiteField = new TextField();
+        websiteField.setPromptText("Enter Website");
+    
+        TextField usernameField = new TextField();
+        usernameField.setPromptText("Enter Username");
+    
+        PasswordField passwordField = new PasswordField();
+        passwordField.setPromptText("Enter Password");
+    
+        Button savePasswordButton = new Button("Save Password");
+        savePasswordButton.setOnAction(e -> savePassword(websiteField.getText(), usernameField.getText(), passwordField.getText()));
+    
+        // ListView for displaying passwords
+        passwordListView = new ListView<>();
+        ObservableList<String> passwordList = FXCollections.observableArrayList();
+        passwordListView.setItems(passwordList);
+    
+        // Load saved passwords from file
+        loadPasswordsFromFile(passwordList);  // Load passwords from the file
+    
+        // Button to edit a password
+        Button editPasswordButton = new Button("Edit Password");
+        editPasswordButton.setOnAction(e -> editPassword());
+    
+        // Button to remove a password
+        Button removePasswordButton = new Button("Remove Password");
+        removePasswordButton.setOnAction(e -> removePassword());
+    
+        // Adding elements to the password tab content
+        passwordTabContent.getChildren().addAll(
+                websiteField, usernameField, passwordField, savePasswordButton, 
+                passwordListView, editPasswordButton, removePasswordButton
+        );
+    
+        return passwordTabContent;
+    }
+    
+    
+    private void editPassword() {
+    String selectedPassword = passwordListView.getSelectionModel().getSelectedItem();
+    if (selectedPassword != null) {
+        
+        String[] parts = selectedPassword.split(" \\| ");
+        if (parts.length == 3) {
+            String website = parts[0].replace("Website: ", "").trim();
+            String username = parts[1].replace("Username: ", "").trim();
+            String password = parts[2].replace("Password: ", "").trim();
+
+            // 
+            Dialog<List<String>> dialog = new Dialog<>();
+            dialog.setTitle("Edit Entry");
+            dialog.setHeaderText("Edit your password entry");
+
+            //  OK и Cancel
+            ButtonType saveButtonType = new ButtonType("Save", ButtonBar.ButtonData.OK_DONE);
+            dialog.getDialogPane().getButtonTypes().addAll(saveButtonType, ButtonType.CANCEL);
+
+            // Imput
+            GridPane grid = new GridPane();
+            grid.setHgap(10);
+            grid.setVgap(10);
+            grid.setPadding(new Insets(20, 150, 10, 10));
+
+            TextField websiteField = new TextField(website);
+            TextField usernameField = new TextField(username);
+            PasswordField passwordField = new PasswordField();
+            passwordField.setText(password);
+
+            grid.add(new Label("Website:"), 0, 0);
+            grid.add(websiteField, 1, 0);
+            grid.add(new Label("Username:"), 0, 1);
+            grid.add(usernameField, 1, 1);
+            grid.add(new Label("Password:"), 0, 2);
+            grid.add(passwordField, 1, 2);
+
+            dialog.getDialogPane().setContent(grid);
+
+            // Convert
+            dialog.setResultConverter(dialogButton -> {
+                if (dialogButton == saveButtonType) {
+                    return Arrays.asList(websiteField.getText(), usernameField.getText(), passwordField.getText());
+                }
+                return null;
+            });
+
+            Optional<List<String>> result = dialog.showAndWait();
+
+            result.ifPresent(updatedValues -> {
+                String updatedWebsite = updatedValues.get(0);
+                String updatedUsername = updatedValues.get(1);
+                String updatedPassword = updatedValues.get(2);
+
+                // Encrypt
+                String encryptedWebsite = encrypt(updatedWebsite);
+                String encryptedUsername = encrypt(updatedUsername);
+                String encryptedPassword = encrypt(updatedPassword);
+
+                // New string
+                String encryptedRecord = "Website: " + encryptedWebsite + " | Username: " + encryptedUsername + " | Password: " + encryptedPassword;
+
+                // update`ListView`
+                int index = passwordListView.getItems().indexOf(selectedPassword);
+                if (index != -1) {
+                    passwordListView.getItems().set(index, decryptFieldsInRecord(encryptedRecord)); // show 
+                }
+
+                // update file
+                updatePasswordInFile(selectedPassword, encryptedRecord);
+            });
+        }
+    }
+}
+
+    
+    private void updatePasswordInFile(String oldRecord, String newEncryptedRecord) {
+        List<String> lines = new ArrayList<>();
+        
+        // reed all strings
+        try (BufferedReader reader = new BufferedReader(new FileReader("passwords.txt"))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                // 
+                if (line.equals(oldRecord)) {
+                    lines.add(newEncryptedRecord); // 
+                } else {
+                    lines.add(line); // 
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    
+        // rewrite
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter("passwords.txt"))) {
+            for (String updatedLine : lines) {
+                writer.write(updatedLine);
+                writer.newLine();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+    
+    
+    
+    private void removePassword() {
+        String selectedPassword = passwordListView.getSelectionModel().getSelectedItem();
+        if (selectedPassword != null) {
+            // Remove the selected password from the ListView
+            passwordListView.getItems().remove(selectedPassword);
+    
+            // Save the updated password list to the file
+            savePasswordsToFile();
+        }
+    }
+
+    
+    private void savePassword(String website, String username, String password) {
+        if (!website.isEmpty() && !username.isEmpty() && !password.isEmpty()) {
+            // 
+            String passwordRecord = "Website: " + website + " | Username: " + username + " | Password: " + password;
+    
+            // add  ListView
+            passwordListView.getItems().add(passwordRecord);
+    
+            // savePasswords
+            savePasswordsToFile();
+        }
+    }
+    
+    
+    private void savePasswordsToFile() {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter("passwords.txt"))) {
+            for (String passwordRecord : passwordListView.getItems()) {
+                // 
+                String encryptedPasswordRecord = encryptFieldsInRecord(passwordRecord);
+                writer.write(encryptedPasswordRecord);  // save pass
+                writer.newLine();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    
+    
+    private String encryptFieldsInRecord(String passwordRecord) {
+        // sep 
+        String[] parts = passwordRecord.split(" \\| ");
+        if (parts.length == 3) {
+            // exe
+            String website = parts[0].replace("Website: ", "").trim();
+            String username = parts[1].replace("Username: ", "").trim();
+            String password = parts[2].replace("Password: ", "").trim();
+            
+            // encore
+            String encryptedWebsite = encrypt(website);
+            String encryptedUsername = encrypt(username);
+            String encryptedPassword = encrypt(password);
+            
+            // return
+            return "Website: " + encryptedWebsite + " | Username: " + encryptedUsername + " | Password: " + encryptedPassword;
+        }
+        return passwordRecord;  // ret 
+    }
+    
+    
+
+    private String decryptFieldsInRecord(String encryptedRecord) {
+        // spring
+        String[] parts = encryptedRecord.split(" \\| ");
+        if (parts.length == 3) {
+            // exe
+            String encryptedWebsite = parts[0].replace("Website: ", "").trim();
+            String encryptedUsername = parts[1].replace("Username: ", "").trim();
+            String encryptedPassword = parts[2].replace("Password: ", "").trim();
+    
+            // decrypt
+            String website = decrypt(encryptedWebsite);
+            String username = decrypt(encryptedUsername);
+            String password = decrypt(encryptedPassword);
+    
+            // return
+            return "Website: " + website + " | Username: " + username + " | Password: " + password;
+        }
+        return encryptedRecord;  // ret
+    }
+    
+    private String decrypt(String encryptedData) {
+        try {
+            SecretKeySpec key = new SecretKeySpec(SECRET_KEY.getBytes(), "AES");
+            Cipher cipher = Cipher.getInstance("AES");
+            cipher.init(Cipher.DECRYPT_MODE, key);
+            byte[] decodedData = Base64.getDecoder().decode(encryptedData);
+            byte[] decryptedData = cipher.doFinal(decodedData);
+            return new String(decryptedData);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+    
+    
     private void updateTreeView() {
         TreeItem<String> rootItem = new TreeItem<>("All Tasks");
         rootItem.setExpanded(true);
@@ -291,6 +548,103 @@ public class DoList extends Application {
         return "Uncategorized";
     }
 
+    
+    private void createPasswordListView() {
+        passwordListView = new ListView<>();
+        ObservableList<String> passwordList = FXCollections.observableArrayList();
+    
+        // add pass from file
+        loadPasswordsFromFile(passwordList);
+        passwordListView.setItems(passwordList);
+    
+        // new menu
+        ContextMenu contextMenu = new ContextMenu();
+        
+        // copy log
+        MenuItem copyLoginItem = new MenuItem("Copy Login");
+        copyLoginItem.setOnAction(event -> {
+            String selectedPassword = passwordListView.getSelectionModel().getSelectedItem();
+            if (selectedPassword != null) {
+                String login = extractLogin(selectedPassword);  // exe log
+                copyToClipboard(login);  // copy to Clipboard
+            }
+        });
+    
+        // copy pass
+        MenuItem copyPasswordItem = new MenuItem("Copy Password");
+        copyPasswordItem.setOnAction(event -> {
+            String selectedPassword = passwordListView.getSelectionModel().getSelectedItem();
+            if (selectedPassword != null) {
+                String encryptedPassword = extractPassword(selectedPassword);  // exe pass
+                String decryptedPassword = decrypt(encryptedPassword);  // encryption 
+                copyToClipboard(decryptedPassword);  // copy to Clipboard
+            }
+        });
+    
+        contextMenu.getItems().addAll(copyLoginItem, copyPasswordItem);
+        
+        // install menu on ListView
+        passwordListView.setContextMenu(contextMenu);
+    }
+    
+    // exe log
+    private String extractLogin(String passwordRecord) {
+        int start = passwordRecord.indexOf("Username: ");
+        int end = passwordRecord.indexOf(" | Password: ", start);
+        if (start != -1 && end != -1) {
+            return passwordRecord.substring(start + 10, end);  // return 
+        }
+        return "";
+    }
+    
+    // exe pass
+    private String extractPassword(String passwordRecord) {
+        int start = passwordRecord.indexOf("Password: ");
+        if (start != -1) {
+            return passwordRecord.substring(start + 10);  // return pass
+        }
+        return "";
+    }
+    
+    // copy to Clipboard
+    private void copyToClipboard(String text) {
+        Clipboard clipboard = Clipboard.getSystemClipboard();
+        ClipboardContent content = new ClipboardContent();
+        content.putString(text);
+        clipboard.setContent(content);
+    }
+    
+    
+    private void loadPasswordsFromFile(ObservableList<String> passwordList) {
+        passwordListView.getItems().clear();  // reset buffer
+        try (BufferedReader reader = new BufferedReader(new FileReader("passwords.txt"))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                // check line
+                if (!line.trim().isEmpty()) {
+                    // encr
+                    String decryptedRecord = decryptFieldsInRecord(line);
+                    
+                    // check
+                    if (isValidRecord(decryptedRecord)) {
+                        // add in ListView
+                        passwordList.add(decryptedRecord);
+                    }
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+    
+    // valid f
+    private boolean isValidRecord(String record) {
+        // check "Website", "Username" и "Password" with not null 
+        return record.contains("Website: ") && record.contains("Username: ") && record.contains("Password: ");
+    }
+    
+    
+
     // Adding a task
     private void addTask() {
         String task = taskInputField.getText();
@@ -343,20 +697,6 @@ public class DoList extends Application {
         }
     }
 
-    // Decrypt the task text
-    private String decrypt(String data) {
-        try {
-            SecretKeySpec key = new SecretKeySpec(SECRET_KEY.getBytes(), "AES");
-            Cipher cipher = Cipher.getInstance("AES");
-            cipher.init(Cipher.DECRYPT_MODE, key);
-            byte[] decodedData = Base64.getDecoder().decode(data);
-            byte[] decryptedData = cipher.doFinal(decodedData);
-            return new String(decryptedData);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return null;
-        }
-    }
 
     private void loadTasksFromFile() {
         try (BufferedReader reader = new BufferedReader(new FileReader(fileName))) {
@@ -378,12 +718,13 @@ public class DoList extends Application {
             Cipher cipher = Cipher.getInstance("AES");
             cipher.init(Cipher.ENCRYPT_MODE, key);
             byte[] encryptedData = cipher.doFinal(data.getBytes());
-            return Base64.getEncoder().encodeToString(encryptedData);
+            return Base64.getEncoder().encodeToString(encryptedData);  // Вreturn string in Base64
         } catch (Exception e) {
             e.printStackTrace();
             return null;
         }
     }
+    
 
     // removeTask
     private void removeTask() {
@@ -407,43 +748,61 @@ public class DoList extends Application {
         }
     }
 
-    // Editing a task
     private void editTask() {
         String selectedTask = treeView.getSelectionModel().getSelectedItem().getValue();
         if (selectedTask != null) {
-            // Open a dialog box to edit the task
-            TextInputDialog dialog = new TextInputDialog(selectedTask);
-            dialog.setTitle("Edit Task");
-            dialog.setHeaderText("Edit your task");
-            dialog.setContentText("Task:");
-
-            dialog.showAndWait().ifPresent(newTask -> {
-                // Get the index of the task in the list
-                int index = taskList.indexOf(selectedTask);
-
-                // Check if the task contains a status (e.g. "(Completed)")
-                boolean isCompleted = selectedTask.contains("(Completed)");
-                boolean isReminder = selectedTask.contains("(Reminder)");
-
-                // Compose an updated task string
-                String updatedTask = newTask;
-                if (isReminder) {
-                    updatedTask += " (Reminder)";
-                } else if (isCompleted) {
-                    updatedTask += " (Completed)";
-                } else {
-                    updatedTask += " (Not Completed)";
+            // new dialog with Alert 
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("Edit Task");
+            alert.setHeaderText("Edit your task");
+    
+            // new panel input
+            TextField taskField = new TextField(selectedTask);
+            taskField.setPrefWidth(700);  // install width
+            taskField.setPrefHeight(30);  // install height
+    
+            // add text in sector 
+            VBox vbox = new VBox();
+            vbox.getChildren().add(taskField);
+            alert.getDialogPane().setContent(vbox);
+    
+            // add button
+            ButtonType saveButtonType = new ButtonType("Save", ButtonBar.ButtonData.OK_DONE);
+            alert.getButtonTypes().setAll(saveButtonType, ButtonType.CANCEL);
+    
+            // Display the dialog and process the entered text
+            alert.showAndWait().ifPresent(result -> {
+                if (result == saveButtonType) {
+                    String newTask = taskField.getText();
+    
+                    // Get the index of the task in the list
+                    int index = taskList.indexOf(selectedTask);
+    
+                    // Check if the task is completed or with a reminder
+                    boolean isCompleted = selectedTask.contains("(Completed)");
+                    boolean isReminder = selectedTask.contains("(Reminder)");
+    
+                    // Create an updated task line
+                    String updatedTask = newTask;
+                    if (isReminder) {
+                        updatedTask += " (Reminder)";
+                    } else if (isCompleted) {
+                        updatedTask += " (Completed)";
+                    } else {
+                        updatedTask += " (Not Completed)";
+                    }
+    
+                    // Update the task in the list
+                    taskList.set(index, updatedTask);
+    
+                    // Applying filtering after editing
+                    updateTreeView();
+    
+                    // Save the updated task list to a file (with encryption)
+                    saveTasksToFile();
                 }
-
-                // Update the task in the list
-                taskList.set(index, updatedTask);
-
-                // Apply task filtering after editing
-                updateTreeView();
-
-                // Save the updated task list to a file (encrypt tasks)
-                saveTasksToFile();
             });
         }
     }
-}
+}    
+    
