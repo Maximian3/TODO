@@ -60,6 +60,10 @@
     -fx-alignment: center-left;  /* Align content to the left */
 }
 
+.task-title {
+    -fx-font-weight: bold;
+}
+
 /* List view style */
 .list-view {
     -fx-background-color: #f9f9f9;
