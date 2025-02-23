@@ -2,7 +2,8 @@
 .button {
     -fx-background-color: #4CAF50;
     -fx-text-fill: white;
-    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-font-size: 13px;
     -fx-padding: 10px 20px;
     -fx-border-radius: 5px;
     -fx-transition: background-color 0.3s ease; /* Smooth hover transition */
@@ -34,6 +35,16 @@
 .mark-complete-button:hover {
     -fx-background-color: #1e88e5;
 }
+
+/* Mark as NotCompleted button style */
+.mark-not-complete-button {
+    -fx-background-color: #2196F3;
+}
+
+.mark-not-complete-button:hover {
+    -fx-background-color: #1e88e5;
+}
+
 
 /* Edit Task button style */
 .edit-task-button {
