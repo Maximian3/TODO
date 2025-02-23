@@ -16,6 +16,7 @@ import java.io.*;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 
@@ -130,25 +131,32 @@ public class DoList extends Application {
         updateTreeView();
 
         // Task management button panel
-        HBox buttonPanel = new HBox(10);
+        HBox buttonPanel = new HBox(15);
         buttonPanel.setAlignment(Pos.CENTER);
 
-        // Button to delete a task
-        Button removeButton = new Button("Remove Task");
-        removeButton.setOnAction(e -> removeTask());
-        removeButton.getStyleClass().add("remove-task-button");
 
-        // Button to mark a task as completed
+
+        //Button to mark a task as completed
         Button markCompleteButton = new Button("Mark as Completed");
         markCompleteButton.setOnAction(e -> markComplete());
         markCompleteButton.getStyleClass().add("mark-complete-button");
+
+        // Button to mark a task as not completed
+        Button markNCompleteButton = new Button("Mark as Not Completed");
+        markNCompleteButton.setOnAction(e -> markNComplete());
+        markNCompleteButton.getStyleClass().add("mark-not-complete-button");
 
         // Button to edit the task
         Button editTaskButton = new Button("Edit Task");
         editTaskButton.setOnAction(e -> editTask());
         editTaskButton.getStyleClass().add("edit-task-button");
 
-        buttonPanel.getChildren().addAll(removeButton, markCompleteButton, editTaskButton);
+        // Button to delete a task
+        Button removeButton = new Button("Remove Task");
+        removeButton.setOnAction(e -> removeTask());
+        removeButton.getStyleClass().add("remove-task-button");
+
+        buttonPanel.getChildren().addAll( markCompleteButton, markNCompleteButton, editTaskButton, removeButton);
 
         // Adding panels to the screen
         taskTabContent.getChildren().addAll(filterPanel, treeView, buttonPanel);
@@ -794,13 +802,35 @@ public class DoList extends Application {
         }
     }
 
-    // Mark the task as completed
     private void markComplete() {
         String selectedTask = treeView.getSelectionModel().getSelectedItem().getValue();
-        if (selectedTask != null && !selectedTask.contains("(Completed)")) {
+        if (selectedTask != null) {
             int index = taskList.indexOf(selectedTask);
-            taskList.set(index, selectedTask.replace("(Not Completed)", "(Completed)"));
-            updateTreeView(); // Refresh tree view
+
+            // check if there is already a mark (Completed - date)
+            if (!selectedTask.matches(".*\\(Completed\\) - \\d{4}-\\d{2}-\\d{2}$")) {
+                String completedDate = new SimpleDateFormat("yyyy-MM-dd").format(new Date());
+
+                // Remove "(Not Completed)" (if any) and add "(Completed - date)"
+                String updatedTask = selectedTask.replace("(Not Completed)", "").trim() + " (Completed) - " + completedDate;
+                taskList.set(index, updatedTask);
+            }
+
+            updateTreeView();
+            saveTasksToFile();
+        }
+    }
+
+    private void markNComplete() {
+        String selectedTask = treeView.getSelectionModel().getSelectedItem().getValue();
+        if (selectedTask != null) {
+            int index = taskList.indexOf(selectedTask);
+
+            // Remove "(Completed - date)" and replace with "(Not Completed)"
+            String updatedTask = selectedTask.replaceAll("\\(Completed\\) - \\d{4}-\\d{2}-\\d{2}", "").trim() + " (Not Completed)";
+            taskList.set(index, updatedTask);
+
+            updateTreeView();
             saveTasksToFile();
         }
     }
@@ -808,58 +838,51 @@ public class DoList extends Application {
     private void editTask() {
         String selectedTask = treeView.getSelectionModel().getSelectedItem().getValue();
         if (selectedTask != null) {
-            // Create a new Alert dialog with a text field
             Alert alert = new Alert(Alert.AlertType.INFORMATION);
             alert.setTitle("Edit Task");
             alert.setHeaderText("Edit your task");
 
-            // Create a text input panel
-            TextField taskField = new TextField(selectedTask);
-            taskField.setPrefWidth(700);  // Set the field width
-            taskField.setPrefHeight(30);  // Setting the field height
+            TextField taskField = new TextField(selectedTask.replaceAll(" \\(Completed\\) - \\d{4}-\\d{2}-\\d{2}$", "").replace("(Not Completed)", "").trim());
+            taskField.setPrefWidth(700);
+            taskField.setPrefHeight(30);
 
-            // Add a text field to the window
             VBox vbox = new VBox();
             vbox.getChildren().add(taskField);
             alert.getDialogPane().setContent(vbox);
 
-            // Adding buttons for confirmation
             ButtonType saveButtonType = new ButtonType("Save", ButtonBar.ButtonData.OK_DONE);
             alert.getButtonTypes().setAll(saveButtonType, ButtonType.CANCEL);
 
-            // Display the dialog and process the entered text
             alert.showAndWait().ifPresent(result -> {
                 if (result == saveButtonType) {
-                    String newTask = taskField.getText();
+                    String newTask = taskField.getText().trim();
+                    if (newTask.isEmpty()) {
+                        return;
+                    }
 
-                    // Get the index of the task in the list
                     int index = taskList.indexOf(selectedTask);
 
-                    // Check if the task is completed or with a reminder
-                    boolean isCompleted = selectedTask.contains("(Completed)");
+                    // Check if there is a mark of completion or a reminder
+                    boolean isCompleted = selectedTask.matches(".*\\(Completed\\) - \\d{4}-\\d{2}-\\d{2}$");
                     boolean isReminder = selectedTask.contains("(Reminder)");
 
-                    // Create an updated task line
                     String updatedTask = newTask;
-                    if (isReminder) {
+                    if (isCompleted) {
+                        String datePart = selectedTask.replaceAll(".*\\(Completed\\) - (\\d{4}-\\d{2}-\\d{2})$", "$1");
+                        updatedTask += " (Completed) - " + datePart;
+                    } else if (isReminder) {
                         updatedTask += " (Reminder)";
-                    } else if (isCompleted) {
-                        updatedTask += " (Completed)";
                     } else {
                         updatedTask += " (Not Completed)";
                     }
 
-                    // Update the task in the list
                     taskList.set(index, updatedTask);
-
-                    // Applying filtering after editing
                     updateTreeView();
-
-                    // Save the updated task list to a file (with encryption)
                     saveTasksToFile();
                 }
             });
         }
     }
+
 }    
     
